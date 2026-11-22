@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MolarisStock — Gestão de Estoque para Laboratórios</title>
+    <meta name="description" content="Demonstração interativa de gestão de reagentes clínicos, conversão de medidas químicas e alertas automáticos de validade e reposição de lotes.">
+
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%237c3aed'/%3E%3Cpath d='M25 14h14M28 14v11l-9.5 17.5A4 4 0 0 0 22 48h20a4 4 0 0 0 3.5-5.5L36 25V14' fill='none' stroke='%23ffffff' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3Cpath d='M22 39h20' stroke='%2322d3ee' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="topbar">
+        <div class="topbar-inner">
+            <div class="brand">
+                <div class="brand-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M9 3h6"/>
+                        <path d="M10 3v5.4L5.2 17.2A2.5 2.5 0 0 0 7.4 21h9.2a2.5 2.5 0 0 0 2.2-3.8L14 8.4V3"/>
+                        <path d="M7.5 15h9"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="brand-title-row">
+                        <h1>MolarisStock</h1>
+                        <span class="demo-pill">Modo Demonstração</span>
+                    </div>
+                    <p class="brand-sub">Gestão de Reagentes &amp; Lotes Laboratoriais</p>
+                </div>
+            </div>
+
+            <div class="topbar-actions">
+                <button type="button" class="btn btn-primary" id="btn-novo-reagente">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                    <span>Novo Reagente</span>
+                </button>
+                <button type="button" class="btn btn-secondary" id="btn-exportar-csv">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    <span>Exportar CSV</span>
+                </button>
+                <button type="button" class="btn btn-ghost" id="btn-restaurar-demo">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    <span>Restaurar Demo</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <section class="kpi-grid" aria-label="Resumo do estoque">
+            <button type="button" class="kpi-card kpi-total ativo" data-kpi-filter="todos">
+                <span class="kpi-label">Total de Lotes</span>
+                <strong class="kpi-valor" id="kpi-total">0</strong>
+                <span class="kpi-hint">Ver todos os reagentes</span>
+            </button>
+            <button type="button" class="kpi-card kpi-reposicao" data-kpi-filter="reposicao">
+                <span class="kpi-label">Estoque Crítico</span>
+                <strong class="kpi-valor" id="kpi-reposicao">0</strong>
+                <span class="kpi-hint">Abaixo ou no mínimo</span>
+            </button>
+            <button type="button" class="kpi-card kpi-validade" data-kpi-filter="validade">
+                <span class="kpi-label">Atenção à Validade</span>
+                <strong class="kpi-valor" id="kpi-validade">0</strong>
+                <span class="kpi-hint">Vencidos ou &le; 30 dias</span>
+            </button>
+            <button type="button" class="kpi-card kpi-ok" data-kpi-filter="regular">
+                <span class="kpi-label">Em Conformidade</span>
+                <strong class="kpi-valor" id="kpi-ok">0</strong>
+                <span class="kpi-hint">Saldo e prazo regulares</span>
+            </button>
+        </section>
+
+        <div id="alert-banner" class="alert-banner" hidden></div>
+
+        <nav class="tabs-nav" role="tablist" aria-label="Navegação do sistema">
+            <button type="button" class="tab-btn ativo" role="tab" aria-selected="true" aria-controls="panel-estoque" id="tab-estoque" data-tab="estoque">
+                Estoque de Reagentes
+            </button>
+            <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-conversor" id="tab-conversor" data-tab="conversor">
+                Conversor &amp; Diluição
+            </button>
+            <button type="button" class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-historico" id="tab-historico" data-tab="historico">
+                <span>Histórico</span>
+                <span class="tab-badge" id="badge-historico">0</span>
+            </button>
+        </nav>
+
+        <!-- Painel 1: Estoque -->
+        <section id="panel-estoque" class="tab-panel" role="tabpanel" aria-labelledby="tab-estoque">
+            <div class="toolbar">
+                <div class="search-wrap">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input type="search" id="busca-input" placeholder="Buscar reagente, fórmula, CAS ou lote..." aria-label="Buscar reagente">
+                </div>
+
+                <select id="filtro-categoria" aria-label="Filtrar por categoria">
+                    <option value="todas">Todas as categorias</option>
+                    <option value="Ácidos">Ácidos</option>
+                    <option value="Bases">Bases</option>
+                    <option value="Solventes">Solventes</option>
+                    <option value="Tampões">Tampões</option>
+                    <option value="Corantes">Corantes</option>
+                    <option value="Kits Clínicos">Kits Clínicos</option>
+                    <option value="Sais">Sais</option>
+                </select>
+
+                <div class="status-pills" role="group" aria-label="Filtrar por situação">
+                    <button type="button" class="pill-filter ativo" data-status="todos">Todos</button>
+                    <button type="button" class="pill-filter" data-status="regular">Regular</button>
+                    <button type="button" class="pill-filter" data-status="reposicao">Reposição</button>
+                    <button type="button" class="pill-filter" data-status="vencendo">Vencendo</button>
+                    <button type="button" class="pill-filter" data-status="vencido">Vencido</button>
+                </div>
+            </div>
+
+            <div class="reagentes-card">
+                <div class="reagentes-header" aria-hidden="true">
+                    <span>Reagente / Fórmula</span>
+                    <span>Lote &amp; Validade</span>
+                    <span>Quantidade em Estoque</span>
+                    <span>Situação</span>
+                    <span>Ações</span>
+                </div>
+                <div id="lista-reagentes" class="reagentes-lista"></div>
+                <div id="estado-vazio" class="estado-vazio" hidden>
+                    <p>Nenhum reagente encontrado para os filtros selecionados.</p>
+                    <button type="button" class="btn btn-secondary" id="btn-limpar-filtros">Limpar filtros</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Painel 2: Conversor & Diluição -->
+        <section id="panel-conversor" class="tab-panel" role="tabpanel" aria-labelledby="tab-conversor" hidden>
+            <div class="tools-grid">
+                <article class="tool-card" id="card-conversor">
+                    <div class="tool-head">
+                        <div>
+                            <h2>Conversor de Medidas Químicas</h2>
+                            <p>Converta instantaneamente entre escalas de volume e massa usadas na bancada.</p>
+                        </div>
+                        <div class="segmented" role="group" aria-label="Tipo de grandeza">
+                            <button type="button" class="seg-btn ativo" id="conv-tipo-volume" data-conv-tipo="volume">Volume</button>
+                            <button type="button" class="seg-btn" id="conv-tipo-massa" data-conv-tipo="massa">Massa</button>
+                        </div>
+                    </div>
+
+                    <div class="conv-inputs">
+                        <div class="field">
+                            <label for="conv-valor">Valor</label>
+                            <input type="number" id="conv-valor" value="250" min="0" step="any">
+                        </div>
+
+                        <div class="conv-pair">
+                            <div class="field">
+                                <label for="conv-de">De</label>
+                                <select id="conv-de"></select>
+                            </div>
+                            <button type="button" class="btn-swap" id="btn-swap-unidades" title="Inverter unidades" aria-label="Inverter unidades">&#8644;</button>
+                            <div class="field">
+                                <label for="conv-para">Para</label>
+                                <select id="conv-para"></select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="result-box" id="conv-resultado">
+                        <span class="result-label">Resultado da conversão</span>
+                        <strong class="result-value">0,25 L</strong>
+                    </div>
+
+                    <div class="equiv-grid" id="conv-tabela"></div>
+                </article>
+
+                <article class="tool-card" id="card-diluicao">
+                    <div class="tool-head">
+                        <div>
+                            <h2>Calculadora de Diluição</h2>
+                            <p>Calcule o volume exato de solução estoque e solvente para o preparo.</p>
+                        </div>
+                        <span class="formula-badge">C&#8321; &middot; V&#8321; = C&#8322; &middot; V&#8322;</span>
+                    </div>
+
+                    <div class="dil-grid">
+                        <div class="field">
+                            <label for="dil-c1">Concentração Inicial (C&#8321;)</label>
+                            <input type="number" id="dil-c1" value="10" min="0" step="any">
+                        </div>
+                        <div class="field">
+                            <label for="dil-c2">Concentração Desejada (C&#8322;)</label>
+                            <input type="number" id="dil-c2" value="2" min="0" step="any">
+                        </div>
+                        <div class="field">
+                            <label for="dil-v2">Volume Final Desejado (V&#8322; em mL)</label>
+                            <input type="number" id="dil-v2" value="500" min="0" step="any">
+                        </div>
+                        <div class="field">
+                            <label for="dil-unidade">Unidade de Concentração</label>
+                            <select id="dil-unidade">
+                                <option value="mol/L (M)">mol/L (M)</option>
+                                <option value="% (v/v)">% (v/v)</option>
+                                <option value="mg/mL">mg/mL</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="result-box result-dil" id="dil-resultado"></div>
+                </article>
+            </div>
+        </section>
+
+        <!-- Painel 3: Histórico -->
+        <section id="panel-historico" class="tab-panel" role="tabpanel" aria-labelledby="tab-historico" hidden>
+            <div class="historico-card">
+                <div class="historico-head">
+                    <div>
+                        <h2>Movimentações registradas nesta sessão</h2>
+                        <p>Baixas de bancada, reposições de lote e alterações salvas localmente.</p>
+                    </div>
+                    <button type="button" class="btn btn-ghost" id="btn-limpar-historico">Limpar Histórico</button>
+                </div>
+                <div id="lista-historico" class="historico-lista"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>MolarisStock v2.0 &bull; Demo estática (dados salvos localmente no navegador) &bull; <a href="https://disnou.netlify.app/" target="_blank" rel="noopener noreferrer">Portfólio de Disnou Almeida</a></p>
+    </footer>
+
+    <!-- Modal: Cadastro / Edição de Reagente -->
+    <div class="modal-overlay" id="modal-reagente" role="dialog" aria-modal="true" aria-labelledby="modal-reagente-titulo" hidden>
+        <div class="modal-card">
+            <div class="modal-head">
+                <h2 id="modal-reagente-titulo">Novo Reagente</h2>
+                <button type="button" class="modal-close" data-close-modal="modal-reagente" aria-label="Fechar janela">&times;</button>
+            </div>
+
+            <form id="form-reagente">
+                <input type="hidden" id="reg-id">
+                <div class="form-grid">
+                    <div class="field field-full">
+                        <label for="reg-nome">Nome do Reagente *</label>
+                        <input type="text" id="reg-nome" required placeholder="Ex.: Ácido Sulfúrico P.A.">
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-formula">Fórmula Química</label>
+                        <input type="text" id="reg-formula" placeholder="Ex.: H2SO4">
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-cas">Nº CAS</label>
+                        <input type="text" id="reg-cas" placeholder="Ex.: 7664-93-9">
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-categoria">Categoria *</label>
+                        <select id="reg-categoria" required>
+                            <option value="Ácidos">Ácidos</option>
+                            <option value="Bases">Bases</option>
+                            <option value="Solventes">Solventes</option>
+                            <option value="Tampões">Tampões</option>
+                            <option value="Corantes">Corantes</option>
+                            <option value="Kits Clínicos">Kits Clínicos</option>
+                            <option value="Sais">Sais</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-lote">Lote *</label>
+                        <input type="text" id="reg-lote" required placeholder="Ex.: LOT-2026-09">
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-validade">Data de Validade *</label>
+                        <input type="date" id="reg-validade" required>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-tipo">Tipo de Medida *</label>
+                        <select id="reg-tipo" required>
+                            <option value="volume">Volume (L, mL, µL)</option>
+                            <option value="massa">Massa (kg, g, mg, µg)</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-quantidade">Quantidade Atual *</label>
+                        <input type="number" id="reg-quantidade" required min="0" step="any">
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-unidade">Unidade *</label>
+                        <select id="reg-unidade" required></select>
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-minimo">Estoque Mínimo (na mesma unidade) *</label>
+                        <input type="number" id="reg-minimo" required min="0" step="any">
+                    </div>
+
+                    <div class="field">
+                        <label for="reg-local">Localização na Bancada / Armário</label>
+                        <input type="text" id="reg-local" placeholder="Ex.: Capela A2">
+                    </div>
+                </div>
+
+                <p class="form-erro" id="reg-erro" hidden></p>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-ghost" data-close-modal="modal-reagente">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-salvar-reagente">Salvar Reagente</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Baixa / Reposição com Conversão Automática -->
+    <div class="modal-overlay" id="modal-movimento" role="dialog" aria-modal="true" aria-labelledby="mov-titulo" hidden>
+        <div class="modal-card modal-card-sm">
+            <div class="modal-head">
+                <h2 id="mov-titulo">Dar Baixa no Lote</h2>
+                <button type="button" class="modal-close" data-close-modal="modal-movimento" aria-label="Fechar janela">&times;</button>
+            </div>
+
+            <form id="form-movimento">
+                <input type="hidden" id="mov-id">
+                <input type="hidden" id="mov-tipo">
+
+                <div class="mov-resumo">
+                    <strong id="mov-reagente-nome"></strong>
+                    <span id="mov-saldo-atual"></span>
+                </div>
+
+                <div class="form-grid">
+                    <div class="field">
+                        <label for="mov-valor">Quantidade *</label>
+                        <input type="number" id="mov-valor" required min="0.0001" step="any" placeholder="Ex.: 250">
+                    </div>
+
+                    <div class="field">
+                        <label for="mov-unidade">Unidade da Medição *</label>
+                        <select id="mov-unidade" required></select>
+                    </div>
+
+                    <div class="field field-full">
+                        <label for="mov-observacao">Motivo / Bancada (opcional)</label>
+                        <input type="text" id="mov-observacao" placeholder="Ex.: Titulação bancada 3">
+                    </div>
+                </div>
+
+                <div class="mov-preview" id="mov-preview"></div>
+                <p class="form-erro" id="mov-erro" hidden></p>
+
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-ghost" data-close-modal="modal-movimento">Cancelar</button>
+                    <button type="submit" class="btn btn-primary" id="btn-confirmar-movimento">Confirmar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Confirmação (Excluir / Restaurar Demo / Limpar Histórico) -->
+    <div class="modal-overlay" id="modal-confirmar" role="dialog" aria-modal="true" aria-labelledby="confirm-titulo" hidden>
+        <div class="modal-card modal-card-sm">
+            <div class="modal-head">
+                <h2 id="confirm-titulo">Confirmar ação</h2>
+                <button type="button" class="modal-close" data-close-modal="modal-confirmar" aria-label="Fechar janela">&times;</button>
+            </div>
+            <p class="confirm-texto" id="confirm-texto"></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="btn-cancelar-confirm" data-close-modal="modal-confirmar">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btn-confirmar-acao">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
